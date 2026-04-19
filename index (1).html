@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>元气晨报 · Oura睡眠分析</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;400;600&family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&display=swap" rel="stylesheet">
+<style>
+  :root { --ink:#1a1410;--paper:#f5f0e8;--amber:#c8832a;--amber-light:#e8a84a;--sage:#7a9a7a; }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:var(--ink);color:var(--paper);font-family:'Noto Serif SC',serif;min-height:100vh;}
+  body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse at 20% 50%,rgba(200,131,42,.08) 0%,transparent 60%),radial-gradient(ellipse at 80% 20%,rgba(122,154,122,.06) 0%,transparent 50%);pointer-events:none;z-index:0;}
+  .container{position:relative;z-index:1;max-width:720px;margin:0 auto;padding:48px 24px;}
+  .header{text-align:center;margin-bottom:48px;}
+  .header-symbol{font-size:11px;letter-spacing:.4em;color:var(--amber);margin-bottom:16px;opacity:.8;}
+  .header h1{font-family:'Cormorant Garamond',serif;font-size:2.8rem;font-weight:300;letter-spacing:.05em;line-height:1.1;}
+  .header h1 span{color:var(--amber);font-style:italic;}
+  .header-sub{font-size:13px;color:rgba(245,240,232,.4);margin-top:10px;letter-spacing:.15em;}
+  .divider{width:60px;height:1px;background:linear-gradient(90deg,transparent,var(--amber),transparent);margin:20px auto;}
+  .date-bar{display:flex;align-items:center;gap:12px;margin-bottom:32px;background:rgba(245,240,232,.04);border:1px solid rgba(200,131,42,.2);border-radius:4px;padding:14px 20px;}
+  .date-bar label{font-size:12px;letter-spacing:.2em;color:var(--amber);white-space:nowrap;}
+  .date-bar input[type=date]{background:transparent;border:none;color:var(--paper);font-family:'Noto Serif SC',serif;font-size:14px;outline:none;cursor:pointer;flex:1;}
+  .date-bar input[type=date]::-webkit-calendar-picker-indicator{filter:invert(.7) sepia(1) saturate(2) hue-rotate(5deg);cursor:pointer;}
+  .fetch-btn{background:var(--amber);color:var(--ink);border:none;padding:10px 24px;font-family:'Noto Serif SC',serif;font-size:13px;font-weight:600;letter-spacing:.1em;cursor:pointer;border-radius:2px;transition:all .2s;white-space:nowrap;}
+  .fetch-btn:hover{background:var(--amber-light);}
+  .fetch-btn:disabled{opacity:.4;cursor:not-allowed;}
+  .stats-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:24px;}
+  .stat-card{background:rgba(245,240,232,.04);border:1px solid rgba(245,240,232,.08);padding:20px 16px;text-align:center;border-radius:4px;}
+  .stat-card.highlight{border-color:rgba(200,131,42,.35);}
+  .stat-label{font-size:10px;letter-spacing:.25em;color:rgba(245,240,232,.4);text-transform:uppercase;margin-bottom:8px;}
+  .stat-value{font-family:'Cormorant Garamond',serif;font-size:2.2rem;font-weight:300;color:var(--amber-light);line-height:1;}
+  .stat-unit{font-size:11px;color:rgba(245,240,232,.35);margin-top:4px;}
+  .score-bar{width:100%;height:2px;background:rgba(245,240,232,.08);border-radius:1px;margin-top:10px;overflow:hidden;}
+  .score-fill{height:100%;background:linear-gradient(90deg,var(--amber),var(--amber-light));border-radius:1px;transition:width 1s ease;}
+  .stages-row{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:24px;}
+  .stage-pill{background:rgba(245,240,232,.03);border:1px solid rgba(245,240,232,.07);padding:14px 10px;text-align:center;border-radius:4px;}
+  .stage-name{font-size:9px;letter-spacing:.2em;color:rgba(245,240,232,.35);margin-bottom:6px;}
+  .stage-val{font-family:'Cormorant Garamond',serif;font-size:1.4rem;color:var(--sage);}
+  .analysis-section{border:1px solid rgba(200,131,42,.2);border-radius:4px;overflow:hidden;}
+  .analysis-header{background:rgba(200,131,42,.1);padding:16px 24px;display:flex;align-items:center;gap:12px;border-bottom:1px solid rgba(200,131,42,.15);}
+  .analysis-header-icon{width:6px;height:6px;border-radius:50%;background:var(--amber);flex-shrink:0;}
+  .analysis-header h3{font-size:11px;letter-spacing:.3em;color:var(--amber);font-weight:400;}
+  .analysis-body{padding:28px 24px;min-height:120px;}
+  .analysis-text{font-size:15px;line-height:2;color:rgba(245,240,232,.85);font-weight:300;}
+  .analysis-text h4{color:var(--amber-light);font-size:13px;letter-spacing:.2em;margin:20px 0 10px;font-weight:400;}
+  .analysis-text ul{padding-left:1.2em;}
+  .analysis-text li{margin-bottom:6px;color:rgba(245,240,232,.75);}
+  .loading-state{display:flex;flex-direction:column;align-items:center;gap:16px;padding:40px;color:rgba(245,240,232,.4);font-size:13px;letter-spacing:.15em;}
+  .loading-ring{width:32px;height:32px;border:1px solid rgba(200,131,42,.2);border-top-color:var(--amber);border-radius:50%;animation:spin 1.2s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .empty-state{text-align:center;padding:40px;color:rgba(245,240,232,.25);font-size:13px;letter-spacing:.15em;line-height:2;}
+  .error-msg{background:rgba(192,57,43,.1);border:1px solid rgba(192,57,43,.3);border-radius:4px;padding:14px 20px;font-size:13px;color:#e88;margin-bottom:20px;display:none;}
+  @keyframes fadeUp{from{opacity:0;transform:translateY(12px);}to{opacity:1;transform:translateY(0);}}
+  .fade-in{animation:fadeUp .5s ease forwards;}
+  .hidden{display:none;}
+  .watermark{text-align:center;margin-top:48px;font-size:10px;letter-spacing:.3em;color:rgba(245,240,232,.12);}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <div class="header-symbol">☽ &nbsp; 元气晨报 &nbsp; ☽</div>
+    <h1>Sleep <span>Analysis</span></h1>
+    <div class="divider"></div>
+    <div class="header-sub">Oura Ring · 中医体质 · 每日复盘</div>
+  </div>
+  <div class="date-bar">
+    <label>分析日期</label>
+    <input type="date" id="dateInput">
+    <button class="fetch-btn" id="fetchBtn" onclick="fetchAndAnalyze()">获取分析</button>
+  </div>
+  <div class="error-msg" id="errorMsg"></div>
+  <div id="statsSection" class="hidden">
+    <div class="stats-grid fade-in">
+      <div class="stat-card highlight">
+        <div class="stat-label">睡眠评分</div>
+        <div class="stat-value" id="sleepScore">—</div>
+        <div class="score-bar"><div class="score-fill" id="scoreBar" style="width:0%"></div></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">总睡眠时长</div>
+        <div class="stat-value" id="totalSleep">—</div>
+        <div class="stat-unit">小时</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">HRV 均值</div>
+        <div class="stat-value" id="hrv">—</div>
+        <div class="stat-unit">ms</div>
+      </div>
+    </div>
+    <div class="stages-row fade-in">
+      <div class="stage-pill"><div class="stage-name">AWAKE</div><div class="stage-val" id="stageAwake">—</div></div>
+      <div class="stage-pill"><div class="stage-name">LIGHT</div><div class="stage-val" id="stageLight">—</div></div>
+      <div class="stage-pill"><div class="stage-name">DEEP</div><div class="stage-val" id="stageDeep">—</div></div>
+      <div class="stage-pill"><div class="stage-name">REM</div><div class="stage-val" id="stageRem">—</div></div>
+    </div>
+  </div>
+  <div class="analysis-section">
+    <div class="analysis-header">
+      <div class="analysis-header-icon"></div>
+      <h3>AI · 中医体质分析</h3>
+    </div>
+    <div class="analysis-body" id="analysisBody">
+      <div class="empty-state">选择日期后点击「获取分析」<br>开始今日元气解读 🌿</div>
+    </div>
+  </div>
+  <div class="watermark">OURA × TCM WELLNESS · PERSONAL USE ONLY</div>
+</div>
+<script>
+const OURA_TOKEN='VW6H2LP3PMU4F7O67V63AGUDG5KJSGOY';
+const VERCEL_URL='https://oura-proxy-vercel.vercel.app/api/analyze';
+const yesterday=new Date();yesterday.setDate(yesterday.getDate()-1);
+document.getElementById('dateInput').value=yesterday.toISOString().split('T')[0];
+function fmtMins(m){if(!m)return'—';const h=Math.floor(m/60),r=m%60;return h>0?`${h}h${r>0?r+'m':''}`:`${r}m`;}
+async function fetchAndAnalyze(){
+  const date=document.getElementById('dateInput').value;if(!date)return;
+  const btn=document.getElementById('fetchBtn');btn.disabled=true;btn.textContent='分析中...';
+  document.getElementById('errorMsg').style.display='none';
+  document.getElementById('statsSection').classList.add('hidden');
+  document.getElementById('analysisBody').innerHTML=`<div class="loading-state"><div class="loading-ring"></div><span>正在获取数据并生成分析...</span></div>`;
+  try{
+    const res=await fetch(VERCEL_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date,ouraToken:OURA_TOKEN})});
+    if(!res.ok){const e=await res.json().catch(()=>({}));throw new Error(e.error??`服务器错误 ${res.status}`);}
+    const{sleepSummary:s,analysis}=await res.json();
+    document.getElementById('sleepScore').textContent=s.score??'—';
+    if(s.score)document.getElementById('scoreBar').style.width=s.score+'%';
+    document.getElementById('totalSleep').textContent=s.total_hours??'—';
+    document.getElementById('hrv').textContent=s.hrv_avg??'—';
+    document.getElementById('stageAwake').textContent=fmtMins(s.awake_min);
+    document.getElementById('stageLight').textContent=fmtMins(s.light_min);
+    document.getElementById('stageDeep').textContent=fmtMins(s.deep_min);
+    document.getElementById('stageRem').textContent=fmtMins(s.rem_min);
+    document.getElementById('statsSection').classList.remove('hidden');
+    const rendered=analysis.replace(/#### (.+)/g,'<h4>$1</h4>').replace(/\*\*(.+?)\*\*/g,'<strong style="color:var(--amber-light)">$1</strong>').replace(/^- (.+)/gm,'<li>$1</li>').replace(/(<li>.*<\/li>\n?)+/gs,m=>`<ul>${m}</ul>`).replace(/\n\n/g,'</p><p>').replace(/\n/g,'<br>');
+    document.getElementById('analysisBody').innerHTML=`<div class="analysis-text fade-in"><p>${rendered}</p></div>`;
+  }catch(err){
+    const e=document.getElementById('errorMsg');e.textContent=err.message;e.style.display='block';
+    document.getElementById('analysisBody').innerHTML=`<div class="empty-state">获取失败，请检查网络或日期</div>`;
+  }
+  btn.disabled=false;btn.textContent='获取分析';
+}
+</script>
+</body>
+</html>
